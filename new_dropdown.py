@@ -55,7 +55,7 @@ indicator_select = alt.selection_point(
 
 click_countries = alt.selection_point(fields=["Country"])
 
-brush = alt.selection_interval(resolve='global')
+brush = alt.selection_interval(resolve='global', empty=True, clear=True)
 
 color_scale = alt.condition(
     brush,
@@ -122,27 +122,48 @@ scatters = alt.vconcat(
 )
 
 # Create a bar chart from the brush selection of the scatter plot
-bar = alt.Chart(source).mark_bar().encode(
-    x=f'{life_satisfaction}:Q',
-    y=alt.Y('Country:N', sort='-x'),
-    color=alt.Color(f'{life_satisfaction}:Q', scale=alt.Scale(
-        scheme='blues'), legend=None),
+# Calculate aggregate statistics
+
+oecd_total = source[source['Country'] ==
+                    'OECD - Total'][life_satisfaction].iloc[0]
+
+
+n = 21  # Replace with your desired maximum number of bars
+
+bar_chart = alt.Chart(source).mark_bar().transform_filter(
+    brush
+).transform_calculate(
+    adjusted_life_satisfaction='datum["{}"] - {}'.format(
+        life_satisfaction, oecd_total),
+    tooltip='datum.Country + ": " + (datum.adjusted_life_satisfaction > 0 ? "+" : "-") + format(abs(datum.adjusted_life_satisfaction), ",")'
+).transform_window(
+    rank='rank()',
+    sort=[alt.SortField('adjusted_life_satisfaction', order='descending')]
 ).transform_filter(
-    brush
+    alt.datum.rank <= n
+).encode(
+    x=alt.X('adjusted_life_satisfaction:Q',
+            title='Difference from OECD Life Satisfaction total'),
+    y=alt.Y('Country:N', sort='-x'),
+    color=alt.condition(
+        alt.datum.adjusted_life_satisfaction > 0,
+        alt.value('steelblue'),  # The color for positive differences
+        alt.value('orange')  # The color for negative differences
+    ),
+    tooltip='tooltip:N'
 ).properties(
-    width=250,
-).add_params(
-    brush
+    width=200,
+    height=450,
 )
 
 # Append the bar chart to the existing scatter plot
-scatters |= bar
+scatters |= bar_chart
 
 scatters = scatters.resolve_scale(
     color='independent'
 )
 
-# scatters.save("JustChart.html")
+scatters.save("JustChart.html")
 
 # Reshape the data to be: (Country | Indicator | Value)
 source = source.melt(
