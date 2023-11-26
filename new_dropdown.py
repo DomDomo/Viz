@@ -55,20 +55,32 @@ indicator_select = alt.selection_point(
 
 click_countries = alt.selection_point(fields=["Country"])
 
-base = alt.Chart(source).mark_circle(size=100).encode(
-    y=alt.Y(life_satisfaction, scale=alt.Scale(domain=(0, 10)))
+brush = alt.selection_interval(resolve='global')
+
+color_scale = alt.condition(
+    brush,
+    alt.Color(f'{life_satisfaction}:Q', scale=alt.Scale(
+        scheme='yellowgreenblue'), legend=None),
+    alt.ColorValue('gray'),
+)
+
+base = alt.Chart(source).mark_circle(size=150).encode(
+    y=alt.Y(life_satisfaction, scale=alt.Scale(domain=(4, 9))),
+    color=color_scale
 ).properties(
-    width=300,
+    width=400,
     height=200
+).add_params(
+    brush
 )
 
 my_indicators = {
     "Household net wealth ($)": (50000, 1000000),
-    "Employment rate (%)": (20, 100),
-    "Quality of support network (%)": (70, 100),
-    "Educational attainment (%)": (20, 100),
-    "Feeling safe walking alone at night (%)": (20, 100),
-    "Self-reported health (%)": (20, 100),
+    "Employment rate (%)": (30, 100),
+    "Quality of support network (%)": (75, 100),
+    "Educational attainment (%)": (30, 100),
+    "Feeling safe walking alone at night (%)": (30, 100),
+    "Self-reported health (%)": (30, 100),
 }
 
 
@@ -89,13 +101,14 @@ for indi in my_indicators.keys():
         x=get_correct_domain(indi),
         shape='Country:N',
         opacity=alt.condition(click_countries, alt.value(1), alt.value(0.2)),
+
         tooltip=['Country:N', f'{life_satisfaction}:Q',
                  f'{indi}:Q']
     ).resolve_scale(
         color='independent'
     ).add_params(
         click_countries
-    ).interactive()
+    )
 
     charts.append(chart1)
 
@@ -104,7 +117,32 @@ scatters = alt.vconcat(
     alt.hconcat(*charts[:3]),
     alt.hconcat(*charts[3:]),
     title='Life Satisfaction compared to other Indicators'
+).resolve_scale(
+    color='independent'
 )
+
+# Create a bar chart from the brush selection of the scatter plot
+bar = alt.Chart(source).mark_bar().encode(
+    x=f'{life_satisfaction}:Q',
+    y=alt.Y('Country:N', sort='-x'),
+    color=alt.Color(f'{life_satisfaction}:Q', scale=alt.Scale(
+        scheme='blues'), legend=None),
+).transform_filter(
+    brush
+).properties(
+    width=250,
+).add_params(
+    brush
+)
+
+# Append the bar chart to the existing scatter plot
+scatters |= bar
+
+scatters = scatters.resolve_scale(
+    color='independent'
+)
+
+# scatters.save("JustChart.html")
 
 # Reshape the data to be: (Country | Indicator | Value)
 source = source.melt(
