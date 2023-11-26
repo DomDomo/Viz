@@ -103,59 +103,59 @@ source_melted = source.melt(
 source_melted = source_melted.dropna(subset=['Value'])
 print(source_melted)
 
-# choropleth = (
-#     alt.Chart(countries_shape)
-#     .mark_geoshape()
-#     .transform_lookup(
-#         lookup='Country',
-#         from_=alt.LookupData(data=source, key='Country',
-#                              fields=[life_satisfaction])
-#     )
-#     .encode(
-#         color=alt.Color(f"{life_satisfaction}:Q", legend=alt.Legend(
-#             orient='none',
-#             legendX=180, legendY=380,
-#             direction='horizontal',
-#             gradientLength=350)),
-#         opacity=alt.condition(click_countries, alt.value(1), alt.value(0.2)),
-#         tooltip=[
-#             alt.Tooltip('Country:N', title='Country'),
-#             alt.Tooltip(f'{life_satisfaction}:Q'),
-#         ]
-#     )
-#     .add_params(
-#         click_countries
-#     )
-# )
+choropleth = (
+    alt.Chart(countries_shape)
+    .mark_geoshape()
+    .transform_lookup(
+        lookup='Country',
+        from_=alt.LookupData(data=source, key='Country',
+                             fields=[life_satisfaction])
+    )
+    .encode(
+        color=alt.Color(f"{life_satisfaction}:Q", legend=alt.Legend(
+            orient='none',
+            legendX=180, legendY=380,
+            direction='horizontal',
+            gradientLength=350)),
+        opacity=alt.condition(click_countries, alt.value(1), alt.value(0.2)),
+        tooltip=[
+            alt.Tooltip('Country:N', title='Country'),
+            alt.Tooltip(f'{life_satisfaction}:Q'),
+        ]
+    )
+    .add_params(
+        click_countries
+    )
+)
 
-# choropleth = (
-#     alt.Chart(countries_shape)
-#     .mark_geoshape()
-#     .transform_lookup(
-#         lookup='Country',
-#         from_=alt.LookupData(data=source_melted, key='Country',
-#                              fields=['Value'])
-#     )
-#     .transform_filter(
-#         # Filter data based on the selected indicator
-#         (alt.datum.Indicator == indicator_param)
-#     )
-#     .encode(
-#         color=alt.Color('Value:Q', legend=alt.Legend(
-#             orient='none',
-#             legendX=180, legendY=380,
-#             direction='horizontal',
-#             gradientLength=350)),
-#         opacity=alt.condition(click_countries, alt.value(1), alt.value(0.2)),
-#         tooltip=[
-#             alt.Tooltip('Country:N', title='Country'),
-#             alt.Tooltip('Value:Q', title=indicator_param.name),
-#         ]
-#     )
-#     .add_params(
-#         click_countries
-#     )
-# )
+choropleth = (
+    alt.Chart(countries_shape)
+    .mark_geoshape()
+    .transform_lookup(
+        lookup='Country',
+        from_=alt.LookupData(data=source_melted, key='Country',
+                             fields=['Value'])
+    )
+    .transform_filter(
+        # Filter data based on the selected indicator
+        (alt.datum.Indicator == indicator_param)
+    )
+    .encode(
+        color=alt.Color('Value:Q', legend=alt.Legend(
+            orient='none',
+            legendX=180, legendY=380,
+            direction='horizontal',
+            gradientLength=350)),
+        opacity=alt.condition(click_countries, alt.value(1), alt.value(0.2)),
+        tooltip=[
+            alt.Tooltip('Country:N', title='Country'),
+            alt.Tooltip('Value:Q', title=indicator_param.name),
+        ]
+    )
+    .add_params(
+        click_countries
+    )
+)
 
 # map = background + choropleth
 
