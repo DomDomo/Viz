@@ -1,3 +1,4 @@
+from vega_datasets import data
 import pandas as pd
 import altair as alt
 import geopandas as gpd
@@ -25,27 +26,20 @@ source = source.iloc[1:]
 # Reset the DataFrame index
 source.reset_index(drop=True, inplace=True)
 
-# Add units to each of the indicators
-for column in source.columns:
+# Convert columns to numbers and add units to each of the indicators
+for column in source.columns[1:]:
+    # Convert the data types to numbers
+    source[column] = pd.to_numeric(source[column],
+                                   errors='coerce')
     unit = units[column]
     if unit in simplified_units:
         source.rename(
             columns={column: f"{column} ({simplified_units[unit]})"}, inplace=True)
 
-# Reshape the data to be: (Country | Indicator | Value)
-source = source.melt(
-    id_vars='Country', var_name='Indicator', value_name='Value')
 
-# Remove rows with missing values
-source = source.dropna(subset=['Value'])
+indicators = list(source.columns)[1:]
 
-# Add a Unit column
-# source['Unit'] = source['Indicator'].apply(
-#     lambda x: x[x.find("(")+1:x.find(")")])
-
-life_satisfaction = "Life satisfaction (average score)"
-
-indicators = source['Indicator'].unique().tolist()
+life_satisfaction = 'Life satisfaction (average score)'
 
 # Create a dropdown selection menu for the Indicator
 indicator_dropdown = alt.binding_select(
@@ -60,6 +54,68 @@ indicator_select = alt.selection_point(
 )
 
 click_countries = alt.selection_point(fields=["Country"])
+
+base = alt.Chart(source).mark_circle(size=100).encode(
+    y=alt.Y(life_satisfaction, scale=alt.Scale(domain=(0, 10)))
+).properties(
+    width=300,
+    height=200
+)
+
+my_indicators = {
+    "Household net wealth ($)": (50000, 1000000),
+    "Employment rate (%)": (20, 100),
+    "Quality of support network (%)": (70, 100),
+    "Educational attainment (%)": (20, 100),
+    "Feeling safe walking alone at night (%)": (20, 100),
+    "Self-reported health (%)": (20, 100),
+}
+
+
+def get_correct_domain(indi):
+    has_custom = my_indicators.get(indi, False)
+
+    if has_custom:
+        return alt.X(indi, scale=alt.Scale(domain=has_custom))
+
+    return alt.X(indi)
+
+
+charts = []
+for indi in my_indicators.keys():
+    chart1 = base.transform_filter(
+        alt.datum[indi] != None
+    ).encode(
+        x=get_correct_domain(indi),
+        shape='Country:N',
+        opacity=alt.condition(click_countries, alt.value(1), alt.value(0.2)),
+        tooltip=['Country:N', f'{life_satisfaction}:Q',
+                 f'{indi}:Q']
+    ).resolve_scale(
+        color='independent'
+    ).add_params(
+        click_countries
+    ).interactive()
+
+    charts.append(chart1)
+
+
+scatters = alt.vconcat(
+    alt.hconcat(*charts[:3]),
+    alt.hconcat(*charts[3:]),
+    title='Life Satisfaction compared to other Indicators'
+)
+
+# Reshape the data to be: (Country | Indicator | Value)
+source = source.melt(
+    id_vars='Country', var_name='Indicator', value_name='Value')
+
+# Remove rows with missing values
+source = source.dropna(subset=['Value'])
+
+# Add a Unit column
+# source['Unit'] = source['Indicator'].apply(
+#     lambda x: x[x.find("(")+1:x.find(")")])
 
 # Create the bar chart
 chart = alt.Chart(source).mark_bar().encode(
@@ -157,49 +213,13 @@ new_map = (basemap + map).project(
     color='independent'
 )
 
-mcv = chart | new_map
+# mcv = (chart | new_map) | scatters
 
 
-brush = alt.selection_interval(resolve='global')
-
-life_satisfaction = 'Life satisfaction (average score)'
-
-base = alt.Chart(source).mark_circle(size=100).encode(
-    y=life_satisfaction,
-    color=alt.condition(brush, 'Origin', alt.ColorValue('gray'), legend=None)
-).add_params(
-    brush
-).properties(
-    width=250,
-    height=250
+mcv = alt.vconcat(
+    alt.hconcat(scatters),
+    alt.hconcat(chart, new_map),
 )
 
-charts = []
 
-for i in range(len(indicators)):
-    # sub = source.dropna(subset = [indicators[num], life_satisfaction], inplace=False)
-
-    # # Calculate the distance of each point from the origin (0,0), adding a small constant to avoid taking the square root of 0
-    # sub['distance'] = (source[life_satisfaction])**2 + (source[indicators[i]])**2
-
-    chart1 = base.transform_filter(
-        (alt.datum[indicators[i]] != 0) & (alt.datum[life_satisfaction] != 0)
-    ).encode(
-        x=indicators[i],
-        # color=alt.Color('distance:Q', scale=alt.Scale(scheme='viridis'), legend=None),
-        # color=alt.Color(f'{life_satisfaction}:Q', scale=alt.Scale(scheme='blues'), legend=None),
-        tooltip=['Country:N', f'{life_satisfaction}:Q', f'{indicators[i]}:Q']
-    )
-
-    charts.append(chart1)
-
-
-alt.vconcat(
-    alt.hconcat(*charts[:4]),
-    alt.hconcat(*charts[4:8]),
-    alt.hconcat(*charts[8:12]),
-    alt.hconcat(*charts[12:]),
-    title='Index of Multiple Deprivation Dashboard'
-)
-
-mcv.save('JustChart.html')
+mcv.save("JustChart.html")
